@@ -30,8 +30,11 @@ terraform apply \
   -var si_atp_indexer_domain=indexer.testnet.stake.aztec.network
 ```
 Then SSM onto the box, populate `/opt/staking-dashboard-atp/env/atp-indexer.env` with the
-same values the ECS task-def used (RPC_URL, CHAIN_ID, START_BLOCK, the `ATP_FACTORY_*` /
-`*_START_BLOCK` / registry vars — see `atp-indexer/terraform/app.tf`), then
+**same values the ECS task-def used** — copy the full set from `atp-indexer/terraform/app.tf`
+(`indexer_env_vars`, ~25 vars). The required ones are RPC_URL, CHAIN_ID, START_BLOCK, the
+`ATP_FACTORY_*` addresses, `*_FACTORY_START_BLOCK`, and the registry vars; the rest are tuning
+(`BLOCK_BATCH_SIZE`, `POLLING_INTERVAL`, `MAX_RETRIES`, `PARALLEL_BATCHES`, `CLEANUP_*`,
+`TRUST_PROXY`, `PONDER_TELEMETRY_DISABLED`) and fall back to image defaults if omitted. Then
 `docker compose up -d` (or set `-var si_start_services_on_boot=true` once the env file exists).
 
 ### testnet (Caddy-direct)
@@ -47,11 +50,16 @@ CloudFront serves viewer TLS; the box serves http-only to CloudFront only.
 ## Cutover (decommission the old fleet)
 1. Stand up this box; seed/let it reach head (the indexer is RPC-bound — see ignition's
    ROAD-TO-PROD notes; restore a `pg_dump` if you have one to skip the reindex).
-2. Repoint the **frontend's** indexer URL to this box's endpoint:
-   - testnet: the hostname now resolves to the EIP (Caddy-direct), or
-   - prod: `cloudfront_domain_name` output (or move the existing indexer hostname's alias here).
-   The frontend reads the atp-indexer's URL from remote state today
-   (`staking-dashboard/terraform` → `atp_indexer_url`); update that source at cutover.
+2. Repoint the **frontend's** indexer URL to this box's endpoint. The frontend reads it from
+   the atp-indexer's remote state today (`staking-dashboard/terraform/data.tf` →
+   `data.terraform_remote_state.atp-indexer.outputs.cf_domain_name`). At cutover, change that
+   data source's `key` from the old atp-indexer state
+   (`.../backends/atp-indexer/terraform.tfstate`) to this stack's state
+   (`<env>/staking-dashboard/atp-indexer-single-instance/terraform.tfstate`). This stack
+   exposes a **`cf_domain_name`** output (same name as the old stack), so no frontend code
+   change beyond the state `key` is needed.
+   - testnet: alternatively the hostname resolves to the EIP directly (Caddy-direct).
+   - prod: the `cf_domain_name`/`cloudfront_domain_name` output is the box's CloudFront.
 3. After parity, tear down the old `atp-indexer/terraform` ECS service / Aurora / ALB
    (e.g. scale the service to 0, then `terraform destroy` those resources). **Snapshot the
    Aurora data first.** Keep the existing CloudFront if you prefer to repoint its origin

@@ -85,7 +85,7 @@ variable "cloudfront_secret_header_name" {
 }
 
 variable "cloudfront_secret_header_value" {
-  description = "Value of the CloudFront secret header (empty = no gate)"
+  description = "Value of the CloudFront secret header. REQUIRED (non-empty) when si_front_with_cloudfront=true — Caddy always enforces the header in that mode, so an empty value rejects every request (enforced by a precondition)."
   type        = string
   sensitive   = true
   default     = ""

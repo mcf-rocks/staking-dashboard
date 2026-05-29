@@ -118,3 +118,11 @@ output "cloudfront_domain_name" {
   description = "CloudFront domain for the box (point the frontend's indexer URL here at cutover)"
   value       = one(aws_cloudfront_distribution.front[*].domain_name)
 }
+
+# Compatibility alias: the staking-dashboard frontend reads `cf_domain_name` from the
+# atp-indexer remote state (staking-dashboard/terraform/data.tf). Expose the same name so
+# the frontend can be repointed at this stack's state with no output rename.
+output "cf_domain_name" {
+  description = "Alias of cloudfront_domain_name matching the old atp-indexer stack's output name"
+  value       = one(aws_cloudfront_distribution.front[*].domain_name)
+}

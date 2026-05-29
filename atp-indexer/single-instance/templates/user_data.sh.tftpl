@@ -58,11 +58,15 @@ env_file="$APP_DIR/env/atp-indexer.env"
 if [ ! -f "$env_file" ]; then
   cat > "$env_file" <<'EOF'
 # Populate before starting Docker Compose (keep secrets out of Terraform state).
+# Copy the FULL set from the ECS task-def (atp-indexer/terraform/app.tf -> indexer_env_vars,
+# ~25 vars) so behaviour matches exactly.
 # Required: RPC_URL, CHAIN_ID, START_BLOCK,
 #   ATP_FACTORY_ADDRESS, ATP_FACTORY_AUCTION_ADDRESS, ATP_FACTORY_MATP_ADDRESS,
 #   ATP_FACTORY_LATP_ADDRESS, STAKING_REGISTRY_ADDRESS, REGISTRY_ADDRESS,
 #   REGISTRY_START_BLOCK, MATP_FACTORY_START_BLOCK, LATP_FACTORY_START_BLOCK.
-# (Same values the ECS task-def used; see atp-indexer/terraform/app.tf.)
+# Tuning (image defaults if omitted): BLOCK_BATCH_SIZE, POLLING_INTERVAL, MAX_RETRIES,
+#   PARALLEL_BATCHES, CLEANUP_ENABLED, CLEANUP_INTERVAL_BLOCKS, CLEANUP_KEEP_BLOCKS,
+#   TRUST_PROXY, PONDER_TELEMETRY_DISABLED.
 EOF
 fi
 

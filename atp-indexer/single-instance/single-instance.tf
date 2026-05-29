@@ -164,6 +164,17 @@ resource "aws_instance" "this" {
     start_services_on_boot = var.si_start_services_on_boot
   })
 
+  lifecycle {
+    precondition {
+      condition     = !(var.si_create_dns_records && var.si_front_with_cloudfront)
+      error_message = "si_create_dns_records and si_front_with_cloudfront are mutually exclusive (both would own the same A-record). Use Caddy-direct OR CloudFront-front, not both."
+    }
+    precondition {
+      condition     = !var.si_front_with_cloudfront || var.cloudfront_secret_header_value != ""
+      error_message = "cloudfront_secret_header_value must be non-empty when si_front_with_cloudfront=true: Caddy enforces the secret header in that mode, so an empty value would reject every request."
+    }
+  }
+
   tags = local.si_tags
 }
 
