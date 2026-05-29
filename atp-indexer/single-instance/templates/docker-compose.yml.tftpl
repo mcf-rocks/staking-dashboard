@@ -57,8 +57,9 @@ services:
       POSTGRES_CONNECTION_STRING: "${atp_postgres_connection_string}"
       DATABASE_SCHEMA: "${atp_database_schema}"
       NODE_ENV: "production"
+      # `yarn start` (ponder start) indexes AND serves the API on PORT — it's the all-in-one,
+      # so the separate `yarn serve` API server (and its API_PORT) isn't needed on the box.
       PORT: "42068"
-      API_PORT: "42068"
       LOG_LEVEL: "info"
       PONDER_LOG_LEVEL: "info"
     volumes:

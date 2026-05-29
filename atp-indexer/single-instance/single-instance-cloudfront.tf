@@ -119,10 +119,12 @@ output "cloudfront_domain_name" {
   value       = one(aws_cloudfront_distribution.front[*].domain_name)
 }
 
-# Compatibility alias: the staking-dashboard frontend reads `cf_domain_name` from the
-# atp-indexer remote state (staking-dashboard/terraform/data.tf). Expose the same name so
-# the frontend can be repointed at this stack's state with no output rename.
+# The staking-dashboard frontend reads `cf_domain_name` from the atp-indexer remote state
+# (staking-dashboard/terraform/data.tf) to build the indexer URL. Expose the same name in
+# BOTH modes so the frontend can be repointed at this stack's state with no output rename:
+# - CloudFront-front (prod): the CloudFront distribution domain.
+# - Caddy-direct (testnet): the indexer hostname (resolves to the EIP, Caddy serves TLS).
 output "cf_domain_name" {
-  description = "Alias of cloudfront_domain_name matching the old atp-indexer stack's output name"
-  value       = one(aws_cloudfront_distribution.front[*].domain_name)
+  description = "Indexer endpoint host for the frontend (CloudFront domain in CF mode; the indexer hostname otherwise)"
+  value       = var.si_front_with_cloudfront ? one(aws_cloudfront_distribution.front[*].domain_name) : var.si_atp_indexer_domain
 }
