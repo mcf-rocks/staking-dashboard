@@ -40,24 +40,36 @@ data "aws_ami" "al2023" {
   }
 }
 
+# In CloudFront-front mode, restrict ingress to CloudFront's origin-facing ranges
+# (defense-in-depth on top of the Caddy secret-header gate). SSM is egress-based, so remote
+# access still works.
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  count = var.si_front_with_cloudfront ? 1 : 0
+  name  = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_security_group" "instance" {
   name        = "${local.si_name}-instance"
   description = "Public HTTP/HTTPS for the staking-dashboard atp-indexer single instance"
   vpc_id      = data.aws_vpc.default.id
 
+  # CloudFront-front: lock to the CloudFront prefix list (no public CIDRs). Caddy-direct:
+  # open to var.si_allowed_http_cidrs (needed for Let's Encrypt http-01 + direct access).
   ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.si_allowed_http_cidrs
+    description     = "HTTP"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    cidr_blocks     = var.si_front_with_cloudfront ? [] : var.si_allowed_http_cidrs
+    prefix_list_ids = data.aws_ec2_managed_prefix_list.cloudfront[*].id
   }
   ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = var.si_allowed_http_cidrs
+    description     = "HTTPS"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    cidr_blocks     = var.si_front_with_cloudfront ? [] : var.si_allowed_http_cidrs
+    prefix_list_ids = data.aws_ec2_managed_prefix_list.cloudfront[*].id
   }
   egress {
     description = "Outbound internet"
