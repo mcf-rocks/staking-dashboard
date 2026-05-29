@@ -185,6 +185,10 @@ resource "aws_instance" "this" {
       condition     = !var.si_front_with_cloudfront || local.cf_secret_value != ""
       error_message = "The CloudFront secret header resolved empty in CloudFront mode. Either the shared SSM secret (cloudfront_secret_header_ssm_name in the ignition-infrastructure state) isn't populated, or set cloudfront_secret_header_value. Caddy enforces the header, so empty would reject every request."
     }
+    precondition {
+      condition     = !var.si_front_with_cloudfront || local.cf_waf_arn_resolved != null
+      error_message = "The CLOUDFRONT-scoped WAF resolved null in CloudFront mode. Ensure the shared ignition-infrastructure state (key ${local.si_env_parent}/backends/ignition-infrastructure/terraform.tfstate) exposes backend_waf_arn, or set si_cf_web_acl_arn. Refusing to front the box without a WAF."
+    }
   }
 
   tags = local.si_tags
