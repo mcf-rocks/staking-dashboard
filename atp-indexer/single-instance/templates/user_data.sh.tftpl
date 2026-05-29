@@ -1,0 +1,76 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker jq xfsprogs
+systemctl enable --now docker
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+usermod -aG docker ec2-user || true
+
+DATA_DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${volume_id_no_dash}"
+for attempt in $(seq 1 60); do
+  if [ -b "$DATA_DEVICE" ]; then
+    break
+  fi
+  sleep 2
+done
+
+if [ ! -b "$DATA_DEVICE" ]; then
+  echo "Data volume was not attached at $DATA_DEVICE" >&2
+  exit 1
+fi
+
+DATA_LABEL="atpsidata"
+
+if ! blkid "$DATA_DEVICE"; then
+  mkfs.xfs -L "$DATA_LABEL" "$DATA_DEVICE"
+fi
+
+mkdir -p /data
+if ! grep -q "$DATA_LABEL" /etc/fstab; then
+  echo "LABEL=$DATA_LABEL /data xfs defaults,nofail 0 2" >> /etc/fstab
+fi
+mount -a
+
+APP_DIR="/opt/staking-dashboard-atp"
+mkdir -p \
+  "$APP_DIR/env" \
+  /data/atp-indexer/.ponder \
+  /data/caddy/data \
+  /data/caddy/config \
+  /data/postgres
+
+echo "${compose_b64}" | base64 -d > "$APP_DIR/docker-compose.yml"
+echo "${caddyfile_b64}" | base64 -d > "$APP_DIR/Caddyfile"
+
+cat > "$APP_DIR/refresh-ecr-login.sh" <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.${region}.amazonaws.com
+SCRIPT
+chmod +x "$APP_DIR/refresh-ecr-login.sh"
+
+env_file="$APP_DIR/env/atp-indexer.env"
+if [ ! -f "$env_file" ]; then
+  cat > "$env_file" <<'EOF'
+# Populate before starting Docker Compose (keep secrets out of Terraform state).
+# Required: RPC_URL, CHAIN_ID, START_BLOCK,
+#   ATP_FACTORY_ADDRESS, ATP_FACTORY_AUCTION_ADDRESS, ATP_FACTORY_MATP_ADDRESS,
+#   ATP_FACTORY_LATP_ADDRESS, STAKING_REGISTRY_ADDRESS, REGISTRY_ADDRESS,
+#   REGISTRY_START_BLOCK, MATP_FACTORY_START_BLOCK, LATP_FACTORY_START_BLOCK.
+# (Same values the ECS task-def used; see atp-indexer/terraform/app.tf.)
+EOF
+fi
+
+chown -R ec2-user:ec2-user "$APP_DIR" /data
+
+"$APP_DIR/refresh-ecr-login.sh" || true
+
+if [ "${start_services_on_boot}" = "true" ]; then
+  cd "$APP_DIR"
+  docker compose up -d
+fi
