@@ -10,6 +10,12 @@ variable "region" {
   default     = "eu-west-2"
 }
 
+variable "env_parent" {
+  description = "Parent env for the shared ignition-infrastructure Terraform state (CloudFront secret + WAF). Defaults to env."
+  type        = string
+  default     = ""
+}
+
 variable "si_instance_type" {
   description = "EC2 instance size"
   type        = string
@@ -73,7 +79,7 @@ variable "si_front_with_cloudfront" {
 }
 
 variable "si_cf_web_acl_arn" {
-  description = "CLOUDFRONT-scoped WAFv2 WebACL ARN to attach (null = no WAF)"
+  description = "Override the CLOUDFRONT-scoped WAFv2 WebACL ARN. Default null = use the shared backend WAF from remote state (what the existing atp-indexer CloudFront uses)."
   type        = string
   default     = null
 }
@@ -85,7 +91,7 @@ variable "cloudfront_secret_header_name" {
 }
 
 variable "cloudfront_secret_header_value" {
-  description = "Value of the CloudFront secret header. REQUIRED (non-empty) when si_front_with_cloudfront=true — Caddy always enforces the header in that mode, so an empty value rejects every request (enforced by a precondition)."
+  description = "Override the CloudFront secret header value. Default empty = read the shared value from SSM (what the existing fleet uses). In CloudFront mode the resolved value must be non-empty (enforced by a precondition), since Caddy enforces the header."
   type        = string
   sensitive   = true
   default     = ""

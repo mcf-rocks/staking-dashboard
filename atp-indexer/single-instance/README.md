@@ -43,8 +43,11 @@ at the EIP first).
 
 ### prod (CloudFront-front)
 `-var si_front_with_cloudfront=true -var si_create_dns_records=false`
-`-var cloudfront_secret_header_value=<secret>` (Caddy enforces it; CloudFront injects it)
-`-var si_cf_web_acl_arn=<cloudfront-scoped WAF arn>` (optional).
+The **CloudFront secret header** and **CLOUDFRONT-scoped WAF** are read automatically from the
+shared `ignition-infrastructure` state / SSM — the same ones the existing atp-indexer
+CloudFront uses — so you normally **don't** pass them. Set `-var env_parent=<parent>` if the
+shared state isn't under the same env name. Overrides if ever needed:
+`-var cloudfront_secret_header_value=<secret>`, `-var si_cf_web_acl_arn=<arn>`.
 CloudFront serves viewer TLS; the box serves http-only to CloudFront only.
 
 ## Cutover (decommission the old fleet)

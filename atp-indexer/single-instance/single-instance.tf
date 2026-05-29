@@ -171,7 +171,7 @@ resource "aws_instance" "this" {
       atp_indexer_domain     = var.si_atp_indexer_domain
       cloudfront_front       = var.si_front_with_cloudfront
       cf_secret_header_name  = var.cloudfront_secret_header_name
-      cf_secret_header_value = var.cloudfront_secret_header_value
+      cf_secret_header_value = local.cf_secret_value
     }))
     start_services_on_boot = var.si_start_services_on_boot
   })
@@ -182,8 +182,8 @@ resource "aws_instance" "this" {
       error_message = "si_create_dns_records and si_front_with_cloudfront are mutually exclusive (both would own the same A-record). Use Caddy-direct OR CloudFront-front, not both."
     }
     precondition {
-      condition     = !var.si_front_with_cloudfront || var.cloudfront_secret_header_value != ""
-      error_message = "cloudfront_secret_header_value must be non-empty when si_front_with_cloudfront=true: Caddy enforces the secret header in that mode, so an empty value would reject every request."
+      condition     = !var.si_front_with_cloudfront || local.cf_secret_value != ""
+      error_message = "The CloudFront secret header resolved empty in CloudFront mode. Either the shared SSM secret (cloudfront_secret_header_ssm_name in the ignition-infrastructure state) isn't populated, or set cloudfront_secret_header_value. Caddy enforces the header, so empty would reject every request."
     }
   }
 

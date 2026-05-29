@@ -54,7 +54,7 @@ resource "aws_cloudfront_distribution" "front" {
   count      = local.si_cf_enabled
   enabled    = true
   aliases    = [var.si_atp_indexer_domain]
-  web_acl_id = var.si_cf_web_acl_arn
+  web_acl_id = local.cf_waf_arn_resolved
   comment    = "staking-dashboard atp single-instance front (${var.env})"
 
   origin {
@@ -69,10 +69,10 @@ resource "aws_cloudfront_distribution" "front" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
     dynamic "custom_header" {
-      for_each = var.cloudfront_secret_header_value != "" ? [1] : []
+      for_each = local.cf_secret_value != "" ? [1] : []
       content {
         name  = var.cloudfront_secret_header_name
-        value = var.cloudfront_secret_header_value
+        value = local.cf_secret_value
       }
     }
   }
